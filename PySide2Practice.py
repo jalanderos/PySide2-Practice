@@ -3,7 +3,7 @@ from PySide2.QtWidgets import QApplication, QWidget, QLabel, QToolTip, QPushButt
     QComboBox, QStackedLayout, QRadioButton
 import sys
 from PySide2.QtGui import QIcon, QFont, QGuiApplication
-from PySide2.QtCore import Qt, QTimer
+from PySide2.QtCore import Qt, QTimer, Signal
 
 
 class ParentWidget(QWidget):  # Parent class to allow lower classes to inherit methods
@@ -26,79 +26,9 @@ class ParentWidget(QWidget):  # Parent class to allow lower classes to inherit m
         # Held here b/c DigitalClock init_ui requires super().init_ui() to create timer first
 
 
-class ProgressBar(QMainWindow, ParentWidget):  # Creates class ProgressBar inheriting QMainWindow
-    # [Progress Bar tut] QStatusBar omitted
-    def __init__(self):
-        super().__init__()
-        self.my_status = QStatusBar()  # Empty status bar to fill QMainWindow
-        self.progress_bar = QProgressBar()  # Progress Bar to place in Status Bar
-        self.init_ui("Judge IQ", 400, 30)
-
-    def init_ui(self, title, width, height):
-        super().init_ui(title, width, height)
-        self.move(self.x(), self.y() + 220)  # moves Clock towards bottom of screen (+ > down)
-        self.my_status.addWidget(self.progress_bar, 1)  # Adds Progress bar to status bar, 1: stretches to fit window
-        self.setStatusBar(self.my_status)  # sets status bar into window
-
-    def update_progress(self):  # Runs progress bar from +1% each time called
-        i = self.progress_bar.value()
-        if i <= 100:
-            i += 1
-            self.progress_bar.setValue(i)
-        else:
-            self.timer.stop()
-
-
-class JudgeRadio(ParentWidget):
-    def __init__(self, bar: ProgressBar):
-        super().__init__()
-        self.bar = bar
-        self.category = 0  # Initialized as Classic Judging
-        self.init_ui("Who Takes the Crown?", 300, 100)
-
-    def init_ui(self, title, width, height):
-        super().init_ui(title, width, height)
-        layout = QVBoxLayout()  # Outer Layout
-        self.setLayout(layout)
-        buttons = QVBoxLayout()  # Vertical layout of buttons
-        self.btn1 = QRadioButton()
-        self.btn2 = QRadioButton()
-        buttons.addWidget(self.btn1)
-        buttons.addWidget(self.btn2)
-
-        sub_layout = QHBoxLayout()  # HLayout to space buttons from edge of window
-        sub_layout.addStretch(1)
-        sub_layout.addLayout(buttons)
-        sub_layout.addStretch(5)
-        layout.addLayout(sub_layout)
-
-        submit_btn = QPushButton("Submit")  # Submit button appended to outer layout
-        submit_btn.clicked.connect(self.submission)
-        layout.addWidget(submit_btn)
-        layout.setAlignment(submit_btn, Qt.AlignRight)
-
-    def set_buttons(self):
-        if self.category == 0:
-            self.btn1.setText("Bumstead")
-            self.btn2.setText("Ruffin")
-        else:
-            self.btn1.setText("Elssbiay")
-            self.btn2.setText("Curry")
-
-    def submission(self):
-        if self.btn2.isChecked():
-            myapp.quit()
-        elif self.btn1.isChecked():
-            self.bar.show()
-            timer = QTimer(self)
-            timer.timeout.connect(self.bar.update_progress)
-            timer.start(15)
-
-
 class Window(ParentWidget):  # Creates class Window inheriting from QWidget [First Window tut]
-    def __init__(self, judge: JudgeRadio):  # initializes an obj of class Window
+    def __init__(self):  # initializes an obj of class Window
         super().__init__()  # calls init of parent QWidget
-        self.judge = judge
         self.classic_names = ["Chris Bumstead", "Terrence Ruffin"]
         self.open_names = ["Mamdouh Elssbiay", "Brandon Curry"]
         self.init_ui("Classic Mr. Olympia", 1200, 400)
@@ -209,22 +139,96 @@ class Window(ParentWidget):  # Creates class Window inheriting from QWidget [Fir
         # [QPushButton tut]
         btn = QPushButton("Judge", self)
         self.lower_box.addWidget(btn, 1)
-
         btn.clicked.connect(self.judge_clicked)
 
     def judge_clicked(self):
         # Displays radio button judging window
+        self.judge = JudgeRadio()
         self.judge.category = self.category_combo.currentIndex()
         self.judge.set_buttons()
         self.judge.show()
 
 
+class JudgeRadio(ParentWidget):
+    def __init__(self,):
+        super().__init__()
+        self.category = 0  # Initialized as Classic Judging
+        self.init_ui("Who Takes the Crown?", 300, 100)
+
+    def init_ui(self, title, width, height):
+        super().init_ui(title, width, height)
+        layout = QVBoxLayout()  # Outer Layout
+        self.setLayout(layout)
+        buttons = QVBoxLayout()  # Vertical layout of buttons
+        self.btn1 = QRadioButton()
+        self.btn2 = QRadioButton()
+        buttons.addWidget(self.btn1)
+        buttons.addWidget(self.btn2)
+
+        sub_layout = QHBoxLayout()  # HLayout to space buttons from edge of window
+        sub_layout.addStretch(1)
+        sub_layout.addLayout(buttons)
+        sub_layout.addStretch(5)
+        layout.addLayout(sub_layout)
+
+        submit_btn = QPushButton("Submit")  # Submit button appended to outer layout
+        submit_btn.clicked.connect(self.submission)
+        layout.addWidget(submit_btn)
+        layout.setAlignment(submit_btn, Qt.AlignRight)
+
+    def set_buttons(self):
+        if self.category == 0:
+            self.btn1.setText("Bumstead")
+            self.btn2.setText("Ruffin")
+        else:
+            self.btn1.setText("Elssbiay")
+            self.btn2.setText("Curry")
+
+    def opened(self, index):
+        # Displays radio button judging window
+        self.category = index
+        self.set_buttons()
+        self.show()
+
+    def submission(self):
+        if self.btn2.isChecked():
+            myapp.quit()
+        elif self.btn1.isChecked():
+            self.close()
+            self.bar = ProgressBar()
+            self.bar.show()
+            timer = QTimer(self)
+            timer.timeout.connect(self.bar.update_progress)
+            timer.start(15)
+
+
+class ProgressBar(QMainWindow, ParentWidget):  # Creates class ProgressBar inheriting QMainWindow
+    # [Progress Bar tut] QStatusBar omitted
+    def __init__(self):
+        super().__init__()
+        self.my_status = QStatusBar()  # Empty status bar to fill QMainWindow
+        self.progress_bar = QProgressBar()  # Progress Bar to place in Status Bar
+        self.init_ui("Judge IQ", 400, 30)
+
+    def init_ui(self, title, width, height):
+        super().init_ui(title, width, height)
+        self.move(self.x(), self.y() + 220)  # moves Clock towards bottom of screen (+ > down)
+        self.my_status.addWidget(self.progress_bar, 1)  # Adds Progress bar to status bar, 1: stretches to fit window
+        self.setStatusBar(self.my_status)  # sets status bar into window
+
+    def update_progress(self):  # Runs progress bar from +1% each time called
+        i = self.progress_bar.value()
+        if i <= 100:
+            i += 1
+            self.progress_bar.setValue(i)
+        else:
+            self.timer.stop()
+
+
 if __name__ == '__main__':
     myapp = QApplication(sys.argv)
 
-    progress = ProgressBar()
-    radio = JudgeRadio(progress)
-    window = Window(radio)
+    window = Window()
     window.show()
 
     sys.exit(myapp.exec_())
