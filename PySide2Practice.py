@@ -3,7 +3,7 @@ from PySide2.QtWidgets import QApplication, QWidget, QLabel, QToolTip, QPushButt
     QComboBox, QStackedLayout, QRadioButton
 import sys
 from PySide2.QtGui import QIcon, QFont, QGuiApplication
-from PySide2.QtCore import Qt, QTimer, Signal
+from PySide2.QtCore import Qt, QTimer, Signal, Slot
 
 
 class ParentWidget(QWidget):  # Parent class to allow lower classes to inherit methods
@@ -22,8 +22,6 @@ class ParentWidget(QWidget):  # Parent class to allow lower classes to inherit m
                                     QGuiApplication.primaryScreen().availableGeometry())
         self.setGeometry(center)
         self.set_icon()
-        # created obj timer of class QTimer
-        # Held here b/c DigitalClock init_ui requires super().init_ui() to create timer first
 
 
 class Window(ParentWidget):  # Creates class Window inheriting from QWidget [First Window tut]
@@ -41,6 +39,7 @@ class Window(ParentWidget):  # Creates class Window inheriting from QWidget [Fir
         self.lower_box = QHBoxLayout()  # Contains about, judge buttons, and competitors combobox
         self.set_about()
         self.set_category()
+        self.set_winner()
         self.set_competitors()
         self.set_judge()
 
@@ -122,11 +121,20 @@ class Window(ParentWidget):  # Creates class Window inheriting from QWidget [Fir
             self.comp_combo.clear()
             self.comp_combo.addItems(self.open_names)
 
+    def set_winner(self):  # Two Methods tp create label to display winner of judging radio button
+        self.winner = QLabel("Chosen One:")
+        self.lower_box.addStretch(3)
+        self.lower_box.addWidget(self.winner, 1)
+        self.lower_box.addStretch(3)
+
+    @Slot(str)  # Slot to receive submitted signal
+    def update_winner(self, name):
+        self.winner.setText(f"Chosen One: {name}")
+
     def set_competitors(self):  # Two methods to create combo box to select between two competitors
         self.comp_combo = QComboBox()
         self.comp_combo.addItems(self.classic_names)
         self.comp_combo.activated.connect(self.switch_competitor)
-        self.lower_box.addStretch(7)
         self.lower_box.addWidget(self.comp_combo, 1)
 
     def switch_competitor(self):
@@ -135,21 +143,23 @@ class Window(ParentWidget):  # Creates class Window inheriting from QWidget [Fir
         else:
             self.open_stack.setCurrentIndex(self.comp_combo.currentIndex())
 
-    def set_judge(self):  # Two Methods to create judge button and a question QMessageBox (2 options) when clicked
+    def set_judge(self):  # Two Methods to create judge button and a JudgeRadio object when clicked
         # [QPushButton tut]
         btn = QPushButton("Judge", self)
         self.lower_box.addWidget(btn, 1)
         btn.clicked.connect(self.judge_clicked)
 
     def judge_clicked(self):
-        # Displays radio button judging window
         self.judge = JudgeRadio()
         self.judge.category = self.category_combo.currentIndex()
         self.judge.set_buttons()
+        self.judge.submitted.connect(self.update_winner)
         self.judge.show()
 
 
 class JudgeRadio(ParentWidget):
+    submitted = Signal(str)  # Signal to be emitted when judging is complete
+
     def __init__(self,):
         super().__init__()
         self.category = 0  # Initialized as Classic Judging
@@ -172,11 +182,11 @@ class JudgeRadio(ParentWidget):
         layout.addLayout(sub_layout)
 
         submit_btn = QPushButton("Submit")  # Submit button appended to outer layout
-        submit_btn.clicked.connect(self.submission)
+        submit_btn.clicked.connect(self.submit)
         layout.addWidget(submit_btn)
         layout.setAlignment(submit_btn, Qt.AlignRight)
 
-    def set_buttons(self):
+    def set_buttons(self):  # Sets radio button text based on category
         if self.category == 0:
             self.btn1.setText("Bumstead")
             self.btn2.setText("Ruffin")
@@ -184,22 +194,18 @@ class JudgeRadio(ParentWidget):
             self.btn1.setText("Elssbiay")
             self.btn2.setText("Curry")
 
-    def opened(self, index):
-        # Displays radio button judging window
-        self.category = index
-        self.set_buttons()
-        self.show()
-
-    def submission(self):
-        if self.btn2.isChecked():
-            myapp.quit()
-        elif self.btn1.isChecked():
+    def submit(self):  # Updates winner label and creates ProgressBar object to load if btn1 selected
+        if self.btn1.isChecked():
+            self.submitted.emit(self.btn1.text())
             self.close()
             self.bar = ProgressBar()
             self.bar.show()
             timer = QTimer(self)
             timer.timeout.connect(self.bar.update_progress)
             timer.start(15)
+        elif self.btn2.isChecked():
+            self.submitted.emit(self.btn2.text())
+            self.close()
 
 
 class ProgressBar(QMainWindow, ParentWidget):  # Creates class ProgressBar inheriting QMainWindow
@@ -212,7 +218,6 @@ class ProgressBar(QMainWindow, ParentWidget):  # Creates class ProgressBar inher
 
     def init_ui(self, title, width, height):
         super().init_ui(title, width, height)
-        self.move(self.x(), self.y() + 220)  # moves Clock towards bottom of screen (+ > down)
         self.my_status.addWidget(self.progress_bar, 1)  # Adds Progress bar to status bar, 1: stretches to fit window
         self.setStatusBar(self.my_status)  # sets status bar into window
 
@@ -221,8 +226,6 @@ class ProgressBar(QMainWindow, ParentWidget):  # Creates class ProgressBar inher
         if i <= 100:
             i += 1
             self.progress_bar.setValue(i)
-        else:
-            self.timer.stop()
 
 
 if __name__ == '__main__':
