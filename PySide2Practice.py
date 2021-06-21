@@ -228,8 +228,14 @@ class ProgressBar(QMainWindow, ParentWidget):  # Creates class ProgressBar inher
             self.progress_bar.setValue(i)
 
 
+style = """
+Window::paintEvent(QPaintEvent *) {
+    background: blue;
+}
+"""
 if __name__ == '__main__':
     myapp = QApplication(sys.argv)
+    myapp.setStyleSheet(style)
 
     window = Window()
     window.show()
